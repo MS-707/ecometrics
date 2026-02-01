@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background-primary: #0A0A0F;
+  --color-background-secondary: #12121A;
+  --color-background-card: #16161F;
+  --color-background-input: #1A1A24;
+  --color-border-subtle: #2A2A3C;
+  --color-accent-purple: #583AF6;
+  --color-accent-purple-hover: #6B4FF7;
+  --color-accent-purple-glow: rgba(88, 58, 246, 0.15);
+  --color-accent-green: #10B981;
+  --color-accent-green-glow: rgba(16, 185, 129, 0.15);
+  --color-accent-blue: #3B82F6;
+  --color-accent-blue-glow: rgba(59, 130, 246, 0.15);
+  --color-accent-amber: #F59E0B;
+  --color-accent-amber-glow: rgba(245, 158, 11, 0.15);
+  --color-accent-red: #EF4444;
+  --color-accent-red-glow: rgba(239, 68, 68, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12121A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2A3C;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3A3A4C;
+}
+
+/* Input focus styles */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Number input hide arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
