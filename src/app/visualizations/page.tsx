@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
+import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, Globe } from 'lucide-react';
 import Link from 'next/link';
 import EmissionsSankey from '@/components/EmissionsSankey';
+import SupplyChainMap from '@/components/SupplyChainMap';
 import { getMonthlyData, getSettings } from '@/lib/storage';
 import { calculateEmissions, aggregateMonthlyData, filterByQuarter, getCurrentQuarter, formatQuarter } from '@/lib/calculations';
 import { MonthlyData } from '@/lib/types';
@@ -159,6 +160,36 @@ export default function VisualizationsPage() {
                   <div className="text-sm text-gray-400 mt-1">kg CO2 per mile</div>
                   <div className="text-xs text-gray-500 mt-2">Scope 3 - Medium Truck Transport</div>
                 </div>
+              </div>
+            </section>
+
+            {/* Supply Chain Map */}
+            <section className="bg-background-card rounded-xl border border-border-subtle overflow-hidden">
+              <div className="p-6 border-b border-border-subtle">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Globe size={20} className="text-accent-blue" />
+                      Supply Chain Map
+                    </h3>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Scope 3 transport emissions by supplier location
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full">
+                    <span className="text-xs text-amber-400 font-medium">Sample Data</span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6">
+                <SupplyChainMap />
+              </div>
+              <div className="px-6 py-4 bg-background-secondary/50 border-t border-border-subtle">
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-400">How to read:</strong> Each arc represents a supplier route to your facility.
+                  Arc color indicates transport emissions intensity (blue=low, red=high). Animated particles show goods in transit.
+                  Hover over routes or markers for detailed supplier information including material type, volume, and calculated CO₂.
+                </p>
               </div>
             </section>
 
