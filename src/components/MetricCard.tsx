@@ -48,18 +48,20 @@ export default function MetricCard({
 
   const getTrendIcon = () => {
     if (change === undefined || change === 0) return <Minus size={14} />;
+    // For most metrics, down is good (less consumption)
     return change < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />;
   };
 
   const getTrendColor = () => {
     if (change === undefined || change === 0) return 'text-gray-400';
+    // Down is typically good for environmental metrics
     return change < 0 ? 'text-accent-green' : 'text-accent-red';
   };
 
   return (
-    <div className="bg-background-card rounded-xl border border-border-subtle p-5">
+    <div className="bg-background-card rounded-xl border border-border-subtle p-5 transition-all duration-200 hover:border-border-subtle/80 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5 cursor-default">
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center`}>
+        <div className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}>
           <div className={colors.text}>{icon}</div>
         </div>
         {change !== undefined && (
