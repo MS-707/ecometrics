@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Leaf, Settings, RefreshCw, FileText, Download } from 'lucide-react';
+import { Leaf, Settings, RefreshCw, FileText, Download, FlaskConical } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import { getSettings, generateSampleData, getMonthlyData } from '@/lib/storage';
 import { formatQuarter, getCurrentQuarter } from '@/lib/calculations';
@@ -45,6 +45,13 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <a
+                href="/visualizations"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent-purple/30 text-accent-purple hover:bg-accent-purple/10 hover:border-accent-purple/50 transition-colors"
+              >
+                <FlaskConical size={16} />
+                <span className="hidden sm:inline">Visualizations</span>
+              </a>
               <a
                 href="/review"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-subtle text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
@@ -90,10 +97,15 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border-subtle mt-10 py-5 bg-background-secondary">
-        <div className="max-w-7xl mx-auto px-6 flex justify-between items-center text-xs text-gray-500">
-          <span>EcoMetrics v1.0 — Environmental Performance Tracking for ISO 14001</span>
-          <span>Carbon factors: EPA GHG Emission Factors Hub 2024</span>
+      <footer className="border-t border-border-subtle mt-12 py-6 bg-background-secondary/50">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-gradient-to-br from-accent-green to-emerald-500 flex items-center justify-center">
+              <Leaf size={12} className="text-white" />
+            </div>
+            <span>EcoMetrics v1.0 - Environmental Performance Tracking for ISO 14001</span>
+          </div>
+          <span className="text-gray-600">Carbon factors: EPA GHG Emission Factors Hub 2024</span>
         </div>
       </footer>
     </div>
