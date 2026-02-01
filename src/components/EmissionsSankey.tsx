@@ -49,31 +49,31 @@ export default function EmissionsSankey({
     return {
       nodes: [
         // Sources (left) - index 0-2
-        { name: \`Electricity\n\${electricity.toLocaleString()} kWh\`, category: 'source' },
-        { name: \`Natural Gas\n\${naturalGas.toLocaleString()} therms\`, category: 'source' },
-        { name: \`Transport\n\${transportMiles.toLocaleString()} miles\`, category: 'source' },
+        { name: 'Electricity ' + electricity.toLocaleString() + ' kWh', category: 'source' },
+        { name: 'Natural Gas ' + naturalGas.toLocaleString() + ' therms', category: 'source' },
+        { name: 'Transport ' + transportMiles.toLocaleString() + ' miles', category: 'source' },
         // Process (middle) - index 3
-        { name: 'Facility\nOperations', category: 'process' },
+        { name: 'Facility Operations', category: 'process' },
         // Outputs (right) - index 4-6
-        { name: \`Scope 2\n\${(scope2 / 1000).toFixed(1)}t CO₂\`, category: 'scope2' },
-        { name: \`Scope 1\n\${(scope1 / 1000).toFixed(1)}t CO₂\`, category: 'scope1' },
-        { name: \`Scope 3\n\${(scope3 / 1000).toFixed(1)}t CO₂\`, category: 'scope3' },
+        { name: 'Scope 2 ' + (scope2 / 1000).toFixed(1) + 't CO2', category: 'scope2' },
+        { name: 'Scope 1 ' + (scope1 / 1000).toFixed(1) + 't CO2', category: 'scope1' },
+        { name: 'Scope 3 ' + (scope3 / 1000).toFixed(1) + 't CO2', category: 'scope3' },
         // Total (far right) - index 7
-        { name: \`Total Emissions\n\${(total / 1000).toFixed(1)} metric tons\`, category: 'total' },
+        { name: 'Total Emissions ' + (total / 1000).toFixed(1) + ' metric tons', category: 'total' },
       ],
       links: [
         // Sources to Facility
-        { source: 0, target: 3, value: scope2 }, // Electricity → Facility
-        { source: 1, target: 3, value: scope1 }, // Gas → Facility
-        { source: 2, target: 3, value: scope3 }, // Transport → Facility
+        { source: 0, target: 3, value: scope2 }, // Electricity -> Facility
+        { source: 1, target: 3, value: scope1 }, // Gas -> Facility
+        { source: 2, target: 3, value: scope3 }, // Transport -> Facility
         // Facility to Scopes
-        { source: 3, target: 4, value: scope2 }, // Facility → Scope 2
-        { source: 3, target: 5, value: scope1 }, // Facility → Scope 1
-        { source: 3, target: 6, value: scope3 }, // Facility → Scope 3
+        { source: 3, target: 4, value: scope2 }, // Facility -> Scope 2
+        { source: 3, target: 5, value: scope1 }, // Facility -> Scope 1
+        { source: 3, target: 6, value: scope3 }, // Facility -> Scope 3
         // Scopes to Total
-        { source: 4, target: 7, value: scope2 }, // Scope 2 → Total
-        { source: 5, target: 7, value: scope1 }, // Scope 1 → Total
-        { source: 6, target: 7, value: scope3 }, // Scope 3 → Total
+        { source: 4, target: 7, value: scope2 }, // Scope 2 -> Total
+        { source: 5, target: 7, value: scope1 }, // Scope 1 -> Total
+        { source: 6, target: 7, value: scope3 }, // Scope 3 -> Total
       ],
     };
   };
@@ -126,7 +126,7 @@ export default function EmissionsSankey({
       .attr('width', w)
       .attr('height', h)
       .append('g')
-      .attr('transform', \`translate(\${margin.left},\${margin.top})\`);
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
     // Build data
     const data = buildSankeyData();
@@ -150,7 +150,7 @@ export default function EmissionsSankey({
     links.forEach((link: any, i: number) => {
       const gradient = defs
         .append('linearGradient')
-        .attr('id', \`gradient-\${i}\`)
+        .attr('id', 'gradient-' + i)
         .attr('gradientUnits', 'userSpaceOnUse')
         .attr('x1', (link.source as any).x1)
         .attr('x2', (link.target as any).x0);
@@ -178,7 +178,7 @@ export default function EmissionsSankey({
       .append('path')
       .attr('d', sankeyLinkHorizontal())
       .attr('fill', 'none')
-      .attr('stroke', (d: any, i: number) => \`url(#gradient-\${i})\`)
+      .attr('stroke', (d: any, i: number) => 'url(#gradient-' + i + ')')
       .attr('stroke-width', 0)
       .attr('opacity', 0.7)
       .style('cursor', 'pointer');
@@ -207,7 +207,7 @@ export default function EmissionsSankey({
         setTooltip({
           x: event.pageX,
           y: event.pageY,
-          content: \`\${sourceNode.name.split('\n')[0]} → \${targetNode.name.split('\n')[0]}\n\${(value / 1000).toFixed(2)} metric tons CO₂\`,
+          content: sourceNode.name.split(' ')[0] + ' -> ' + targetNode.name.split(' ')[0] + ': ' + (value / 1000).toFixed(2) + ' metric tons CO2',
         });
       })
       .on('mouseleave', function () {
@@ -227,7 +227,7 @@ export default function EmissionsSankey({
       .data(nodes)
       .enter()
       .append('g')
-      .attr('transform', (d: any) => \`translate(\${d.x0},\${d.y0})\`);
+      .attr('transform', (d: any) => 'translate(' + d.x0 + ',' + d.y0 + ')');
 
     // Node rectangles with animation
     nodeGroups
@@ -274,7 +274,7 @@ export default function EmissionsSankey({
       .attr('font-size', '12px')
       .attr('font-weight', '500')
       .attr('opacity', 0)
-      .text((d: any) => d.name.split('\n')[0])
+      .text((d: any) => d.name.split(' ')[0])
       .transition()
       .duration(600)
       .delay((d: any, i: number) => 400 + i * 80)
@@ -290,7 +290,10 @@ export default function EmissionsSankey({
       .attr('fill', '#9CA3AF')
       .attr('font-size', '11px')
       .attr('opacity', 0)
-      .text((d: any) => d.name.split('\n')[1] || '')
+      .text((d: any) => {
+        const parts = d.name.split(' ');
+        return parts.length > 1 ? parts.slice(1).join(' ') : '';
+      })
       .transition()
       .duration(600)
       .delay((d: any, i: number) => 500 + i * 80)
@@ -357,11 +360,7 @@ export default function EmissionsSankey({
             transform: 'translateY(-100%)',
           }}
         >
-          {tooltip.content.split('\n').map((line, i) => (
-            <div key={i} className={i === 0 ? 'text-white font-medium' : 'text-gray-400'}>
-              {line}
-            </div>
-          ))}
+          <div className="text-white font-medium">{tooltip.content}</div>
         </div>
       )}
 
