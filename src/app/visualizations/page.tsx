@@ -32,11 +32,20 @@ function CollapsibleSection({
   actions
 }: CollapsibleSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  // Lazy mount: only render children after first expansion (improves initial load)
+  const [hasBeenExpanded, setHasBeenExpanded] = useState(defaultExpanded);
+
+  const handleToggle = () => {
+    if (!isExpanded && !hasBeenExpanded) {
+      setHasBeenExpanded(true);
+    }
+    setIsExpanded(!isExpanded);
+  };
 
   return (
     <section className="bg-background-card rounded-xl border border-border-subtle overflow-hidden">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleToggle}
         className="w-full p-4 border-b border-border-subtle flex items-center justify-between hover:bg-background-secondary/30 transition-colors"
       >
         <div className="flex items-center gap-3">
@@ -63,16 +72,19 @@ function CollapsibleSection({
         </div>
       </button>
 
-      <div className={isExpanded ? 'block' : 'hidden'}>
-        <div className="p-4">
-          {children}
-        </div>
-        {footer && (
-          <div className="px-4 py-3 bg-background-secondary/50 border-t border-border-subtle">
-            {footer}
+      {/* Only mount children after first expansion - saves rendering heavy D3 visualizations */}
+      {hasBeenExpanded && (
+        <div className={isExpanded ? 'block' : 'hidden'}>
+          <div className="p-4">
+            {children}
           </div>
-        )}
-      </div>
+          {footer && (
+            <div className="px-4 py-3 bg-background-secondary/50 border-t border-border-subtle">
+              {footer}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
