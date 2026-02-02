@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
+import { geoOrthographic, geoPath, geoGraticule, geoInterpolate } from 'd3-geo';
 
 interface SupplyChainNode {
   id: string;
@@ -15,7 +16,7 @@ interface SupplyChainNode {
   transportMode: 'ship' | 'truck' | 'rail' | 'air';
   distanceKm: number;
   emissionsKgCO2: number;
-  emissionFactor: number; // kg CO2 per ton-km
+  emissionFactor: number;
 }
 
 interface SupplyChainMapProps {
@@ -24,7 +25,7 @@ interface SupplyChainMapProps {
   facilityLocation?: { lat: number; lng: number; name: string };
 }
 
-// Sample supply chain data - representing typical manufacturing inputs
+// Sample supply chain data
 const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
   {
     id: 'supplier-1',
@@ -38,7 +39,7 @@ const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
     transportMode: 'ship',
     distanceKm: 11500,
     emissionsKgCO2: 2070,
-    emissionFactor: 0.004, // Ocean freight
+    emissionFactor: 0.004,
   },
   {
     id: 'supplier-2',
@@ -66,7 +67,7 @@ const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
     transportMode: 'truck',
     distanceKm: 1800,
     emissionsKgCO2: 2700,
-    emissionFactor: 0.05, // Road freight
+    emissionFactor: 0.05,
   },
   {
     id: 'supplier-4',
@@ -80,7 +81,7 @@ const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
     transportMode: 'rail',
     distanceKm: 800,
     emissionsKgCO2: 360,
-    emissionFactor: 0.03, // Rail freight
+    emissionFactor: 0.03,
   },
   {
     id: 'supplier-5',
@@ -108,7 +109,7 @@ const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
     transportMode: 'air',
     distanceKm: 5900,
     emissionsKgCO2: 5900,
-    emissionFactor: 0.5, // Air freight
+    emissionFactor: 0.5,
   },
   {
     id: 'supplier-7',
@@ -140,40 +141,63 @@ const SUPPLY_CHAIN_DATA: SupplyChainNode[] = [
   },
 ];
 
-// Country carbon intensity data (kg CO2 per $ GDP - simplified)
-const COUNTRY_INTENSITY: Record<string, number> = {
-  CHN: 0.65,
-  DEU: 0.18,
-  MEX: 0.35,
-  CAN: 0.32,
-  VNM: 0.58,
-  GBR: 0.15,
-  BRA: 0.22,
-  JPN: 0.23,
-  USA: 0.28,
-  IND: 0.72,
-  KOR: 0.42,
-  AUS: 0.38,
-  FRA: 0.12,
-  ITA: 0.19,
+// Versor math for smooth globe rotation
+const versor = {
+  cartesian(e: [number, number]): [number, number, number] {
+    const l = e[0] * Math.PI / 180;
+    const p = e[1] * Math.PI / 180;
+    const cp = Math.cos(p);
+    return [cp * Math.cos(l), cp * Math.sin(l), Math.sin(p)];
+  },
+  rotation(v0: [number, number, number], v1: [number, number, number]): [number, number, number, number] {
+    const c = this.cross(v0, v1);
+    const d = this.dot(v0, v1);
+    return d < 0
+      ? [Math.sqrt((1 - d) / 2), c[0] / Math.sqrt(2 * (1 - d)), c[1] / Math.sqrt(2 * (1 - d)), c[2] / Math.sqrt(2 * (1 - d))]
+      : [Math.sqrt((1 + d) / 2), c[0] / Math.sqrt(2 * (1 + d)), c[1] / Math.sqrt(2 * (1 + d)), c[2] / Math.sqrt(2 * (1 + d))];
+  },
+  dot(v0: [number, number, number], v1: [number, number, number]): number {
+    return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];
+  },
+  cross(v0: [number, number, number], v1: [number, number, number]): [number, number, number] {
+    return [
+      v0[1] * v1[2] - v0[2] * v1[1],
+      v0[2] * v1[0] - v0[0] * v1[2],
+      v0[0] * v1[1] - v0[1] * v1[0],
+    ];
+  },
+  multiply(q0: [number, number, number, number], q1: [number, number, number, number]): [number, number, number, number] {
+    return [
+      q0[0] * q1[0] - q0[1] * q1[1] - q0[2] * q1[2] - q0[3] * q1[3],
+      q0[0] * q1[1] + q0[1] * q1[0] + q0[2] * q1[3] - q0[3] * q1[2],
+      q0[0] * q1[2] - q0[1] * q1[3] + q0[2] * q1[0] + q0[3] * q1[1],
+      q0[0] * q1[3] + q0[1] * q1[2] - q0[2] * q1[1] + q0[3] * q1[0],
+    ];
+  },
+  toEuler(q: [number, number, number, number]): [number, number, number] {
+    return [
+      Math.atan2(2 * (q[0] * q[1] + q[2] * q[3]), 1 - 2 * (q[1] * q[1] + q[2] * q[2])) * 180 / Math.PI,
+      Math.asin(Math.max(-1, Math.min(1, 2 * (q[0] * q[2] - q[3] * q[1])))) * 180 / Math.PI,
+      Math.atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] * q[2] + q[3] * q[3])) * 180 / Math.PI,
+    ];
+  },
 };
 
 export default function SupplyChainMap({
-  width = 900,
-  height = 500,
-  facilityLocation = { lat: 39.8283, lng: -98.5795, name: 'US Facility' }, // Center of US
+  facilityLocation = { lat: 39.8283, lng: -98.5795, name: 'US Facility' },
 }: SupplyChainMapProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width, height });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
     content: SupplyChainNode | null;
   } | null>(null);
-  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
+  const [rotation, setRotation] = useState<[number, number, number]>([-facilityLocation.lng, -facilityLocation.lat, 0]);
+  const particleProgressRef = useRef<number[]>(SUPPLY_CHAIN_DATA.map(() => Math.random()));
+  const animationRef = useRef<number>();
 
-  // Calculate totals
   const totalEmissions = SUPPLY_CHAIN_DATA.reduce((sum, s) => sum + s.emissionsKgCO2, 0);
   const totalDistance = SUPPLY_CHAIN_DATA.reduce((sum, s) => sum + s.distanceKm, 0);
 
@@ -182,341 +206,362 @@ export default function SupplyChainMap({
     const handleResize = () => {
       if (containerRef.current) {
         const { width: containerWidth } = containerRef.current.getBoundingClientRect();
+        const size = Math.min(containerWidth, 600);
         setDimensions({
-          width: Math.max(containerWidth, 600),
-          height: Math.max(containerWidth * 0.55, 350),
+          width: size,
+          height: size,
         });
       }
     };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // D3 Map rendering
-  useEffect(() => {
-    if (!svgRef.current) return;
+  // Color scale for emissions
+  const getRouteColor = useCallback((emissions: number) => {
+    const maxEmissions = Math.max(...SUPPLY_CHAIN_DATA.map((d) => d.emissionsKgCO2));
+    const t = emissions / maxEmissions;
+    const r = Math.round(59 + t * (239 - 59));
+    const g = Math.round(130 + t * (68 - 130));
+    const b = Math.round(246 + t * (68 - 246));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }, []);
 
-    const svg = d3.select(svgRef.current);
-    const { width: w, height: h } = dimensions;
+  // Main render function
+  const render = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // Clear previous content
-    svg.selectAll('*').remove();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    svg.attr('width', w).attr('height', h);
+    const { width, height } = dimensions;
+    const scale = Math.min(width, height) / 2.2;
 
-    // Create projection - Natural Earth for a nice look
-    const projection = d3
-      .geoNaturalEarth1()
-      .scale(w / 5.5)
-      .translate([w / 2, h / 2]);
+    // Create projection
+    const projection = geoOrthographic()
+      .scale(scale)
+      .translate([width / 2, height / 2])
+      .rotate(rotation)
+      .clipAngle(90);
 
-    const path = d3.geoPath().projection(projection);
+    const path = geoPath(projection, ctx);
+    const graticule = geoGraticule().step([15, 15]);
 
-    // Background
-    svg
-      .append('rect')
-      .attr('width', w)
-      .attr('height', h)
-      .attr('fill', '#0a0a0f');
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
 
-    // Create main group
-    const g = svg.append('g');
+    // Draw ocean background
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, scale, 0, 2 * Math.PI);
+    ctx.fillStyle = '#0c1222';
+    ctx.fill();
 
-    // Draw simplified world outline
-    const worldOutline = {
-      type: 'Sphere',
+    // Draw graticule
+    ctx.beginPath();
+    path(graticule());
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Draw sphere outline
+    ctx.beginPath();
+    path({ type: 'Sphere' });
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw land masses (simplified)
+    const land = {
+      type: 'MultiPolygon' as const,
+      coordinates: [
+        // North America
+        [[[-170, 70], [-60, 70], [-60, 25], [-80, 25], [-125, 30], [-170, 55], [-170, 70]]],
+        // South America
+        [[[-80, 10], [-35, 5], [-35, -55], [-75, -55], [-80, -5], [-80, 10]]],
+        // Europe
+        [[[-10, 70], [40, 70], [40, 35], [-10, 35], [-10, 70]]],
+        // Africa
+        [[[-20, 35], [50, 35], [50, -35], [15, -35], [-20, 5], [-20, 35]]],
+        // Asia
+        [[[40, 70], [180, 70], [180, 10], [100, -10], [60, 25], [40, 35], [40, 70]]],
+        // Australia
+        [[[110, -10], [155, -10], [155, -45], [110, -45], [110, -10]]],
+      ],
     };
 
-    g.append('path')
-      .datum(worldOutline as any)
-      .attr('d', path as any)
-      .attr('fill', '#12121a')
-      .attr('stroke', '#2d2d3d')
-      .attr('stroke-width', 1);
+    ctx.beginPath();
+    path(land);
+    ctx.fillStyle = '#1e293b';
+    ctx.fill();
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-    // Draw graticule (grid lines)
-    const graticule = d3.geoGraticule().step([30, 30]);
-    g.append('path')
-      .datum(graticule())
-      .attr('d', path as any)
-      .attr('fill', 'none')
-      .attr('stroke', '#1a1a2e')
-      .attr('stroke-width', 0.5);
-
-    // Draw simplified continent outlines using rough coordinates
-    const continentPaths = [
-      // North America (simplified)
-      { name: 'North America', coords: [[-170, 70], [-60, 70], [-60, 15], [-100, 15], [-120, 30], [-170, 55], [-170, 70]] },
-      // South America
-      { name: 'South America', coords: [[-80, 10], [-35, 0], [-35, -55], [-75, -55], [-80, -5], [-80, 10]] },
-      // Europe
-      { name: 'Europe', coords: [[-10, 70], [50, 70], [50, 35], [-10, 35], [-10, 70]] },
-      // Africa
-      { name: 'Africa', coords: [[-20, 35], [50, 35], [50, -35], [15, -35], [-20, 5], [-20, 35]] },
-      // Asia
-      { name: 'Asia', coords: [[50, 70], [180, 70], [180, 10], [100, 10], [60, 25], [50, 35], [50, 70]] },
-      // Australia
-      { name: 'Australia', coords: [[110, -10], [155, -10], [155, -45], [110, -45], [110, -10]] },
-    ];
-
-    continentPaths.forEach((continent) => {
-      const lineGenerator = d3
-        .line()
-        .x((d: any) => projection(d)?.[0] || 0)
-        .y((d: any) => projection(d)?.[1] || 0)
-        .curve(d3.curveCardinalClosed);
-
-      g.append('path')
-        .datum(continent.coords)
-        .attr('d', lineGenerator as any)
-        .attr('fill', '#1e1e2e')
-        .attr('stroke', '#3d3d5c')
-        .attr('stroke-width', 1)
-        .attr('opacity', 0.8);
-    });
-
-    // Draw facility location
-    const facilityPos = projection([facilityLocation.lng, facilityLocation.lat]);
-    if (facilityPos) {
-      // Pulsing facility marker
-      const facilityGroup = g.append('g').attr('class', 'facility');
-
-      // Outer pulse
-      facilityGroup
-        .append('circle')
-        .attr('cx', facilityPos[0])
-        .attr('cy', facilityPos[1])
-        .attr('r', 8)
-        .attr('fill', '#10B981')
-        .attr('opacity', 0.3)
-        .attr('class', 'pulse-ring');
-
-      // Inner marker
-      facilityGroup
-        .append('circle')
-        .attr('cx', facilityPos[0])
-        .attr('cy', facilityPos[1])
-        .attr('r', 6)
-        .attr('fill', '#10B981')
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 2);
-
-      // Label
-      facilityGroup
-        .append('text')
-        .attr('x', facilityPos[0])
-        .attr('y', facilityPos[1] - 15)
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#10B981')
-        .attr('font-size', '11px')
-        .attr('font-weight', 'bold')
-        .text('YOUR FACILITY');
-    }
-
-    // Create arc generator for supply routes
-    const createArc = (source: [number, number], target: [number, number]) => {
-      const sourceProj = projection(source);
-      const targetProj = projection(target);
-      if (!sourceProj || !targetProj) return '';
-
-      const dx = targetProj[0] - sourceProj[0];
-      const dy = targetProj[1] - sourceProj[1];
-      const dr = Math.sqrt(dx * dx + dy * dy) * 1.5;
-
-      return 'M' + sourceProj[0] + ',' + sourceProj[1] + 'A' + dr + ',' + dr + ' 0 0,1 ' + targetProj[0] + ',' + targetProj[1];
-    };
-
-    // Color scale for emissions
-    const emissionScale = d3
-      .scaleLinear()
-      .domain([0, Math.max(...SUPPLY_CHAIN_DATA.map((d) => d.emissionsKgCO2))])
-      .range([0, 1]);
-
-    const getRouteColor = (emissions: number) => {
-      const t = emissionScale(emissions);
-      return d3.interpolateRgb('#3B82F6', '#EF4444')(t);
-    };
-
-    // Draw supply routes with animation
-    SUPPLY_CHAIN_DATA.forEach((supplier, i) => {
+    // Draw supply routes as great circle arcs
+    SUPPLY_CHAIN_DATA.forEach((supplier, index) => {
       const source: [number, number] = [supplier.lng, supplier.lat];
       const target: [number, number] = [facilityLocation.lng, facilityLocation.lat];
-      const arcPath = createArc(source, target);
 
-      if (!arcPath) return;
+      // Check if route is visible
+      const sourceVisible = projection(source);
+      const targetVisible = projection(target);
 
-      const routeGroup = g.append('g').attr('class', 'route-' + supplier.id);
+      // Draw arc
+      const interpolate = geoInterpolate(source, target);
+      const arcPoints: [number, number][] = [];
+      for (let t = 0; t <= 1; t += 0.02) {
+        arcPoints.push(interpolate(t) as [number, number]);
+      }
 
-      // Route path (background)
-      const route = routeGroup
-        .append('path')
-        .attr('d', arcPath)
-        .attr('fill', 'none')
-        .attr('stroke', getRouteColor(supplier.emissionsKgCO2))
-        .attr('stroke-width', selectedSupplier === supplier.id ? 4 : 2)
-        .attr('stroke-opacity', selectedSupplier === supplier.id ? 0.9 : 0.5)
-        .attr('stroke-dasharray', function () {
-          return (this as SVGPathElement).getTotalLength();
-        })
-        .attr('stroke-dashoffset', function () {
-          return (this as SVGPathElement).getTotalLength();
-        })
-        .style('cursor', 'pointer');
+      // Draw the arc segments
+      ctx.beginPath();
+      let started = false;
+      arcPoints.forEach((point, i) => {
+        const projected = projection(point);
+        if (projected) {
+          if (!started) {
+            ctx.moveTo(projected[0], projected[1]);
+            started = true;
+          } else {
+            ctx.lineTo(projected[0], projected[1]);
+          }
+        } else if (started) {
+          // Break the path if point goes behind globe
+          ctx.stroke();
+          ctx.beginPath();
+          started = false;
+        }
+      });
+      ctx.strokeStyle = getRouteColor(supplier.emissionsKgCO2);
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.7;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
 
-      // Animate route appearance
-      route
-        .transition()
-        .duration(1500)
-        .delay(i * 200)
-        .ease(d3.easeQuadOut)
-        .attr('stroke-dashoffset', 0);
+      // Draw animated particle
+      const progress = particleProgressRef.current[index];
+      const particlePos = interpolate(progress);
+      const projectedParticle = projection(particlePos as [number, number]);
 
-      // Animated particle along route
-      const animateParticle = () => {
-        const particle = routeGroup
-          .append('circle')
-          .attr('r', 3)
-          .attr('fill', getRouteColor(supplier.emissionsKgCO2))
-          .attr('opacity', 0.9);
+      if (projectedParticle) {
+        ctx.beginPath();
+        ctx.arc(projectedParticle[0], projectedParticle[1], 4, 0, 2 * Math.PI);
+        ctx.fillStyle = getRouteColor(supplier.emissionsKgCO2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
 
-        const pathNode = route.node() as SVGPathElement;
-        if (!pathNode) return;
-
-        const pathLength = pathNode.getTotalLength();
-
-        particle
-          .attr('transform', () => {
-            const p = pathNode.getPointAtLength(0);
-            return 'translate(' + p.x + ',' + p.y + ')';
-          })
-          .transition()
-          .duration(3000 + Math.random() * 2000)
-          .ease(d3.easeLinear)
-          .attrTween('transform', () => {
-            return (t: number) => {
-              const p = pathNode.getPointAtLength(t * pathLength);
-              return 'translate(' + p.x + ',' + p.y + ')';
-            };
-          })
-          .remove();
-      };
-
-      // Start particle animations with staggered delays
-      setTimeout(() => {
-        animateParticle();
-        setInterval(animateParticle, 4000 + i * 500);
-      }, 2000 + i * 300);
-
-      // Supplier marker
-      const supplierPos = projection([supplier.lng, supplier.lat]);
-      if (supplierPos) {
-        const marker = routeGroup
-          .append('circle')
-          .attr('cx', supplierPos[0])
-          .attr('cy', supplierPos[1])
-          .attr('r', 0)
-          .attr('fill', getRouteColor(supplier.emissionsKgCO2))
-          .attr('stroke', '#fff')
-          .attr('stroke-width', 1.5)
-          .style('cursor', 'pointer');
-
-        marker
-          .transition()
-          .duration(500)
-          .delay(1500 + i * 200)
-          .attr('r', selectedSupplier === supplier.id ? 8 : 5);
-
-        // Hover interactions
-        marker
-          .on('mouseenter', function (event) {
-            d3.select(this).transition().duration(200).attr('r', 8);
-            route.transition().duration(200).attr('stroke-width', 4).attr('stroke-opacity', 0.9);
-            setTooltip({
-              x: event.pageX,
-              y: event.pageY,
-              content: supplier,
-            });
-          })
-          .on('mouseleave', function () {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('r', selectedSupplier === supplier.id ? 8 : 5);
-            route
-              .transition()
-              .duration(200)
-              .attr('stroke-width', selectedSupplier === supplier.id ? 4 : 2)
-              .attr('stroke-opacity', selectedSupplier === supplier.id ? 0.9 : 0.5);
-            setTooltip(null);
-          })
-          .on('click', function () {
-            setSelectedSupplier(selectedSupplier === supplier.id ? null : supplier.id);
-          });
-
-        // Route hover
-        route
-          .on('mouseenter', function (event) {
-            d3.select(this).transition().duration(200).attr('stroke-width', 4).attr('stroke-opacity', 0.9);
-            marker.transition().duration(200).attr('r', 8);
-            setTooltip({
-              x: event.pageX,
-              y: event.pageY,
-              content: supplier,
-            });
-          })
-          .on('mouseleave', function () {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('stroke-width', selectedSupplier === supplier.id ? 4 : 2)
-              .attr('stroke-opacity', selectedSupplier === supplier.id ? 0.9 : 0.5);
-            marker
-              .transition()
-              .duration(200)
-              .attr('r', selectedSupplier === supplier.id ? 8 : 5);
-            setTooltip(null);
-          });
+      // Draw supplier marker
+      if (sourceVisible) {
+        ctx.beginPath();
+        ctx.arc(sourceVisible[0], sourceVisible[1], 6, 0, 2 * Math.PI);
+        ctx.fillStyle = getRouteColor(supplier.emissionsKgCO2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
     });
 
-    // Add CSS animation for pulse
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes pulse {
-        0% { r: 8; opacity: 0.3; }
-        50% { r: 15; opacity: 0.1; }
-        100% { r: 8; opacity: 0.3; }
+    // Draw facility marker
+    const facilityPos = projection([facilityLocation.lng, facilityLocation.lat]);
+    if (facilityPos) {
+      // Outer glow
+      ctx.beginPath();
+      ctx.arc(facilityPos[0], facilityPos[1], 12, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+      ctx.fill();
+
+      // Inner marker
+      ctx.beginPath();
+      ctx.arc(facilityPos[0], facilityPos[1], 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#10B981';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Label
+      ctx.font = 'bold 10px system-ui';
+      ctx.fillStyle = '#10B981';
+      ctx.textAlign = 'center';
+      ctx.fillText('YOUR FACILITY', facilityPos[0], facilityPos[1] - 18);
+    }
+
+    // Update particle positions
+    particleProgressRef.current = particleProgressRef.current.map((p) => {
+      const newP = p + 0.003;
+      return newP > 1 ? 0 : newP;
+    });
+
+  }, [dimensions, rotation, facilityLocation, getRouteColor]);
+
+  // Animation loop
+  useEffect(() => {
+    const animate = () => {
+      render();
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
-      .pulse-ring { animation: pulse 2s ease-in-out infinite; }
-    `;
-    document.head.appendChild(style);
+    };
+  }, [render]);
+
+  // Drag handling with versor
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const { width, height } = dimensions;
+    const scale = Math.min(width, height) / 2.2;
+
+    let v0: [number, number, number] | null = null;
+    let r0: [number, number, number] | null = null;
+    let q0: [number, number, number, number] | null = null;
+
+    const projection = geoOrthographic()
+      .scale(scale)
+      .translate([width / 2, height / 2])
+      .rotate(rotation)
+      .clipAngle(90);
+
+    const invert = (pos: [number, number]): [number, number] | null => {
+      const inverted = projection.invert?.(pos);
+      return inverted || null;
+    };
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const pos = invert([x, y]);
+
+      if (pos) {
+        v0 = versor.cartesian(pos);
+        r0 = rotation;
+        q0 = [1, 0, 0, 0];
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!v0 || !r0 || !q0) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      // Update projection with current rotation for accurate inversion
+      const currentProjection = geoOrthographic()
+        .scale(scale)
+        .translate([width / 2, height / 2])
+        .rotate(r0)
+        .clipAngle(90);
+
+      const pos = currentProjection.invert?.([x, y]);
+      if (pos) {
+        const v1 = versor.cartesian(pos);
+        const q1 = versor.rotation(v0, v1);
+        const q = versor.multiply(q0, q1);
+        const euler = versor.toEuler(q);
+
+        setRotation([
+          r0[0] + euler[0],
+          r0[1] + euler[1],
+          r0[2] + euler[2],
+        ]);
+      }
+    };
+
+    const handleMouseUp = () => {
+      v0 = null;
+      r0 = null;
+      q0 = null;
+    };
+
+    // Check if mouse is over a supplier
+    const handleHover = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const projection = geoOrthographic()
+        .scale(scale)
+        .translate([width / 2, height / 2])
+        .rotate(rotation)
+        .clipAngle(90);
+
+      let found: SupplyChainNode | null = null;
+
+      for (const supplier of SUPPLY_CHAIN_DATA) {
+        const pos = projection([supplier.lng, supplier.lat]);
+        if (pos) {
+          const dist = Math.sqrt((pos[0] - x) ** 2 + (pos[1] - y) ** 2);
+          if (dist < 12) {
+            found = supplier;
+            break;
+          }
+        }
+      }
+
+      if (found) {
+        setTooltip({
+          x: event.pageX,
+          y: event.pageY,
+          content: found,
+        });
+        canvas.style.cursor = 'pointer';
+      } else {
+        setTooltip(null);
+        canvas.style.cursor = 'grab';
+      }
+    };
+
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mousemove', handleHover);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseUp);
 
     return () => {
-      document.head.removeChild(style);
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mousemove', handleHover);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseUp);
     };
-  }, [dimensions, selectedSupplier, facilityLocation]);
+  }, [dimensions, rotation]);
 
-  // Transport mode icons
   const getTransportIcon = (mode: string) => {
     switch (mode) {
-      case 'ship':
-        return '🚢';
-      case 'truck':
-        return '🚛';
-      case 'rail':
-        return '🚂';
-      case 'air':
-        return '✈️';
-      default:
-        return '📦';
+      case 'ship': return '🚢';
+      case 'truck': return '🚛';
+      case 'rail': return '🚂';
+      case 'air': return '✈️';
+      default: return '📦';
     }
   };
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <svg ref={svgRef} className="w-full rounded-lg" />
+    <div ref={containerRef} className="relative w-full flex flex-col items-center">
+      <canvas
+        ref={canvasRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        className="rounded-xl cursor-grab"
+        style={{ touchAction: 'none' }}
+      />
+
+      {/* Drag hint */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full text-xs text-gray-300 pointer-events-none">
+        🌍 Drag to rotate globe
+      </div>
 
       {/* Tooltip */}
       {tooltip && tooltip.content && (
@@ -559,43 +604,34 @@ export default function SupplyChainMap({
       )}
 
       {/* Legend & Stats */}
-      <div className="flex flex-wrap justify-between items-start gap-4 mt-4 text-xs">
-        {/* Emissions gradient legend */}
+      <div className="flex flex-wrap justify-center items-center gap-6 mt-4 text-xs w-full">
         <div className="flex items-center gap-3">
-          <span className="text-gray-400">Transport Emissions:</span>
+          <span className="text-gray-400">Emissions:</span>
           <div className="flex items-center gap-1">
             <span className="text-blue-400">Low</span>
             <div
-              className="w-24 h-2 rounded"
-              style={{
-                background: 'linear-gradient(to right, #3B82F6, #EF4444)',
-              }}
+              className="w-16 h-2 rounded"
+              style={{ background: 'linear-gradient(to right, #3B82F6, #EF4444)' }}
             />
             <span className="text-red-400">High</span>
           </div>
         </div>
 
-        {/* Transport mode legend */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
-            <span>🚢</span>
-            <span className="text-gray-400">Ocean</span>
+            <span>🚢</span><span className="text-gray-400">Ocean</span>
           </div>
           <div className="flex items-center gap-1">
-            <span>🚛</span>
-            <span className="text-gray-400">Road</span>
+            <span>🚛</span><span className="text-gray-400">Road</span>
           </div>
           <div className="flex items-center gap-1">
-            <span>🚂</span>
-            <span className="text-gray-400">Rail</span>
+            <span>🚂</span><span className="text-gray-400">Rail</span>
           </div>
           <div className="flex items-center gap-1">
-            <span>✈️</span>
-            <span className="text-gray-400">Air</span>
+            <span>✈️</span><span className="text-gray-400">Air</span>
           </div>
         </div>
 
-        {/* Summary stats */}
         <div className="flex items-center gap-4">
           <div className="text-center">
             <div className="text-amber-400 font-bold">{(totalEmissions / 1000).toFixed(1)}t</div>
@@ -603,7 +639,7 @@ export default function SupplyChainMap({
           </div>
           <div className="text-center">
             <div className="text-blue-400 font-bold">{(totalDistance / 1000).toFixed(0)}k km</div>
-            <div className="text-gray-500">Total Distance</div>
+            <div className="text-gray-500">Distance</div>
           </div>
           <div className="text-center">
             <div className="text-purple-400 font-bold">{SUPPLY_CHAIN_DATA.length}</div>
