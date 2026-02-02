@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, ChevronDown, ChevronUp, Calendar, Sun } from 'lucide-react';
+import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, ChevronDown, ChevronUp, Calendar, Sun, Activity } from 'lucide-react';
 import Link from 'next/link';
 import EmissionsSankey from '@/components/EmissionsSankey';
 import ClimateCalendar from '@/components/ClimateCalendar';
 import EmissionsSunburst from '@/components/EmissionsSunburst';
+import IntensitySparklines from '@/components/IntensitySparklines';
 import { getMonthlyData, getSettings } from '@/lib/storage';
 import { calculateEmissions, aggregateMonthlyData, filterByQuarter, getCurrentQuarter, formatQuarter } from '@/lib/calculations';
 import { MonthlyData } from '@/lib/types';
@@ -277,6 +278,30 @@ export default function VisualizationsPage() {
                 electricity={currentAgg.electricityKwh}
                 naturalGas={currentAgg.naturalGasTherm}
                 transportMiles={currentAgg.inboundDeliveryMiles + currentAgg.outboundShippingMiles}
+              />
+            </CollapsibleSection>
+
+            {/* Intensity Sparklines */}
+            <CollapsibleSection
+              title="Intensity Metrics"
+              subtitle="Normalized emissions trends over 12 months"
+              icon={<Activity size={16} className="text-accent-blue" />}
+              badge={
+                <span className="px-2 py-0.5 text-xs text-accent-green bg-accent-green/10 border border-accent-green/30 rounded-full">
+                  Key KPIs
+                </span>
+              }
+              defaultExpanded={false}
+              footer={
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-400">Why intensity matters:</strong> Absolute emissions can rise with growth.
+                  Intensity metrics show true efficiency improvements over time.
+                </p>
+              }
+            >
+              <IntensitySparklines
+                totalEmissions={emissions.scope1 + emissions.scope2 + emissions.scope3}
+                electricityKwh={currentAgg.electricityKwh}
               />
             </CollapsibleSection>
           </>
