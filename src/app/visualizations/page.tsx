@@ -1,13 +1,80 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, Globe } from 'lucide-react';
+import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import EmissionsSankey from '@/components/EmissionsSankey';
 import SupplyChainMap from '@/components/SupplyChainMap';
 import { getMonthlyData, getSettings } from '@/lib/storage';
 import { calculateEmissions, aggregateMonthlyData, filterByQuarter, getCurrentQuarter, formatQuarter } from '@/lib/calculations';
 import { MonthlyData } from '@/lib/types';
+
+interface CollapsibleSectionProps {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  badge?: React.ReactNode;
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  actions?: React.ReactNode;
+}
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  icon,
+  badge,
+  defaultExpanded = false,
+  children,
+  footer,
+  actions
+}: CollapsibleSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  return (
+    <section className="bg-background-card rounded-xl border border-border-subtle overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-4 border-b border-border-subtle flex items-center justify-between hover:bg-background-secondary/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {icon}
+          <div className="text-left">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {badge}
+          {actions && isExpanded && (
+            <div onClick={(e) => e.stopPropagation()}>{actions}</div>
+          )}
+          {isExpanded ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
+        </div>
+      </button>
+
+      <div className={isExpanded ? 'block' : 'hidden'}>
+        <div className="p-4">
+          {children}
+        </div>
+        {footer && (
+          <div className="px-4 py-3 bg-background-secondary/50 border-t border-border-subtle">
+            {footer}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 export default function VisualizationsPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -36,92 +103,90 @@ export default function VisualizationsPage() {
     <div className="min-h-screen bg-background-primary">
       {/* Header */}
       <header className="border-b border-border-subtle bg-background-secondary/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
                 className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
               >
-                <ArrowLeft size={20} />
-                <span className="text-sm">Back to Dashboard</span>
+                <ArrowLeft size={18} />
+                <span className="text-sm hidden sm:inline">Back</span>
               </Link>
-              <div className="h-6 w-px bg-border-subtle" />
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-purple to-fuchsia-500 flex items-center justify-center">
-                  <FlaskConical size={20} className="text-white" />
+              <div className="h-5 w-px bg-border-subtle" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-purple to-fuchsia-500 flex items-center justify-center">
+                  <FlaskConical size={16} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white">Experimental Visualizations</h1>
-                  <p className="text-xs text-gray-500">D3.js-powered sustainability insights</p>
+                  <h1 className="text-base font-bold text-white">Visualization Lab</h1>
+                  <p className="text-xs text-gray-500 hidden sm:block">D3.js-powered insights</p>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-purple/10 border border-accent-purple/30 rounded-full">
-              <Sparkles size={14} className="text-accent-purple" />
+            <div className="flex items-center gap-2 px-2 py-1 bg-accent-purple/10 border border-accent-purple/30 rounded-full">
+              <Sparkles size={12} className="text-accent-purple" />
               <span className="text-xs text-accent-purple font-medium">Preview</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Intro Banner */}
-        <div className="bg-gradient-to-r from-accent-purple/10 via-fuchsia-500/10 to-accent-blue/10 rounded-2xl border border-accent-purple/20 p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-accent-purple/20 flex items-center justify-center flex-shrink-0">
-              <Sparkles size={24} className="text-accent-purple" />
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        {/* Compact Intro Banner */}
+        <div className="bg-gradient-to-r from-accent-purple/10 via-fuchsia-500/10 to-accent-blue/10 rounded-xl border border-accent-purple/20 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent-purple/20 flex items-center justify-center flex-shrink-0">
+              <Sparkles size={20} className="text-accent-purple" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white mb-1">Welcome to the Visualization Lab</h2>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                These experimental D3.js visualizations bring your sustainability data to life with
-                animated flows, interactive drill-downs, and novel ways to understand environmental impact.
-                Watch how energy transforms into emissions in real-time.
+              <h2 className="text-sm font-semibold text-white">Welcome to the Visualization Lab</h2>
+              <p className="text-xs text-gray-400">
+                Click on each section to expand/collapse. Drag the globe to rotate it.
               </p>
             </div>
           </div>
         </div>
 
         {!currentAgg || !emissions ? (
-          <div className="bg-background-card rounded-xl border border-border-subtle p-12 text-center">
-            <Leaf size={48} className="mx-auto text-gray-600 mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No Data Available</h3>
-            <p className="text-gray-400 mb-6">
+          <div className="bg-background-card rounded-xl border border-border-subtle p-8 text-center">
+            <Leaf size={40} className="mx-auto text-gray-600 mb-3" />
+            <h3 className="text-base font-semibold text-white mb-2">No Data Available</h3>
+            <p className="text-sm text-gray-400 mb-4">
               Add some monthly data in the admin panel to see the visualizations come alive.
             </p>
             <Link
               href="/admin"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-accent-purple text-white rounded-lg hover:bg-accent-purple-hover transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent-purple text-white text-sm rounded-lg hover:bg-accent-purple-hover transition-colors"
             >
               Add Data
             </Link>
           </div>
         ) : (
           <>
-            {/* Carbon Flow Sankey */}
-            <section className="bg-background-card rounded-xl border border-border-subtle overflow-hidden">
-              <div className="p-6 border-b border-border-subtle">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
-                      Carbon Flow Diagram
-                    </h3>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Watch energy inputs transform into emissions ({formatQuarter(currentQ)})
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white bg-background-secondary rounded-lg border border-border-subtle hover:border-accent-purple/30 transition-all"
-                  >
-                    <RefreshCw size={14} />
-                    Replay Animation
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
+            {/* Carbon Flow Sankey - Collapsible */}
+            <CollapsibleSection
+              title="Carbon Flow Diagram"
+              subtitle={"Energy inputs to emissions (" + formatQuarter(currentQ) + ")"}
+              icon={<span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />}
+              defaultExpanded={true}
+              actions={
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-400 hover:text-white bg-background-secondary rounded border border-border-subtle hover:border-accent-purple/30 transition-all"
+                >
+                  <RefreshCw size={12} />
+                  Replay
+                </button>
+              }
+              footer={
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-400">How to read:</strong> Energy sources flow through your facility
+                  and emerge as emissions on the right, categorized by GHG Protocol scopes.
+                </p>
+              }
+            >
+              <div className="max-h-[400px] overflow-auto">
                 <EmissionsSankey
                   electricity={currentAgg.electricityKwh}
                   naturalGas={currentAgg.naturalGasTherm}
@@ -129,115 +194,97 @@ export default function VisualizationsPage() {
                   scope1={emissions.scope1}
                   scope2={emissions.scope2}
                   scope3={emissions.scope3}
+                  height={350}
                 />
               </div>
-              <div className="px-6 py-4 bg-background-secondary/50 border-t border-border-subtle">
+            </CollapsibleSection>
+
+            {/* Emission Factors - Compact */}
+            <CollapsibleSection
+              title="EPA Emission Factors"
+              subtitle="Reference values used for calculations"
+              icon={<div className="w-2 h-2 rounded-full bg-accent-blue" />}
+              defaultExpanded={false}
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-background-secondary rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-accent-blue">0.417</div>
+                  <div className="text-xs text-gray-400">kg CO2/kWh</div>
+                  <div className="text-xs text-gray-500 mt-1">Scope 2 Electricity</div>
+                </div>
+                <div className="bg-background-secondary rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-amber-400">5.3</div>
+                  <div className="text-xs text-gray-400">kg CO2/therm</div>
+                  <div className="text-xs text-gray-500 mt-1">Scope 1 Natural Gas</div>
+                </div>
+                <div className="bg-background-secondary rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-accent-purple">0.161</div>
+                  <div className="text-xs text-gray-400">kg CO2/mile</div>
+                  <div className="text-xs text-gray-500 mt-1">Scope 3 Transport</div>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            {/* Supply Chain Map - Collapsible */}
+            <CollapsibleSection
+              title="Supply Chain Globe"
+              subtitle="Scope 3 transport emissions by supplier"
+              icon={<Globe size={16} className="text-accent-blue" />}
+              badge={
+                <span className="px-2 py-0.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full">
+                  Sample Data
+                </span>
+              }
+              defaultExpanded={false}
+              footer={
                 <p className="text-xs text-gray-500">
-                  <strong className="text-gray-400">How to read:</strong> Energy sources on the left flow through
-                  your facility and emerge as carbon emissions on the right, categorized by GHG Protocol scopes.
-                  Wider flows indicate larger emission contributions. Animated particles show the continuous
-                  nature of emissions generation.
+                  <strong className="text-gray-400">How to interact:</strong> Drag to rotate the globe.
+                  Hover over markers for supplier details. Arc color indicates emissions intensity.
                 </p>
-              </div>
-            </section>
-
-            {/* Emission Factors Reference */}
-            <section className="bg-background-card rounded-xl border border-border-subtle p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">EPA Emission Factors Applied</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-background-secondary rounded-lg p-4">
-                  <div className="text-2xl font-bold text-accent-blue">0.417</div>
-                  <div className="text-sm text-gray-400 mt-1">kg CO2 per kWh</div>
-                  <div className="text-xs text-gray-500 mt-2">Scope 2 - Electricity (eGRID 2024)</div>
-                </div>
-                <div className="bg-background-secondary rounded-lg p-4">
-                  <div className="text-2xl font-bold text-amber-400">5.3</div>
-                  <div className="text-sm text-gray-400 mt-1">kg CO2 per therm</div>
-                  <div className="text-xs text-gray-500 mt-2">Scope 1 - Natural Gas Combustion</div>
-                </div>
-                <div className="bg-background-secondary rounded-lg p-4">
-                  <div className="text-2xl font-bold text-accent-purple">0.161</div>
-                  <div className="text-sm text-gray-400 mt-1">kg CO2 per mile</div>
-                  <div className="text-xs text-gray-500 mt-2">Scope 3 - Medium Truck Transport</div>
-                </div>
-              </div>
-            </section>
-
-            {/* Supply Chain Map */}
-            <section className="bg-background-card rounded-xl border border-border-subtle overflow-hidden">
-              <div className="p-6 border-b border-border-subtle">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <Globe size={20} className="text-accent-blue" />
-                      Supply Chain Map
-                    </h3>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Scope 3 transport emissions by supplier location
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full">
-                    <span className="text-xs text-amber-400 font-medium">Sample Data</span>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
+              }
+            >
+              <div className="flex justify-center">
                 <SupplyChainMap />
               </div>
-              <div className="px-6 py-4 bg-background-secondary/50 border-t border-border-subtle">
-                <p className="text-xs text-gray-500">
-                  <strong className="text-gray-400">How to read:</strong> Each arc represents a supplier route to your facility.
-                  Arc color indicates transport emissions intensity (blue=low, red=high). Animated particles show goods in transit.
-                  Hover over routes or markers for detailed supplier information including material type, volume, and calculated CO₂.
-                </p>
-              </div>
-            </section>
+            </CollapsibleSection>
 
-            {/* Coming Soon Teaser */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-background-card rounded-xl border border-border-subtle border-dashed p-6 opacity-60">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-background-secondary flex items-center justify-center">
-                    <span className="text-xl">📅</span>
-                  </div>
+            {/* Coming Soon - More Compact */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background-card rounded-lg border border-border-subtle border-dashed p-4 opacity-60">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📅</span>
                   <div>
-                    <h4 className="font-semibold text-white">Climate Calendar</h4>
+                    <h4 className="text-sm font-semibold text-white">Climate Calendar</h4>
                     <span className="text-xs text-accent-purple">Coming Soon</span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-500">
-                  Year-view heatmap showing daily consumption patterns and seasonal trends.
-                </p>
+                <p className="text-xs text-gray-500">Daily consumption heatmap</p>
               </div>
-              <div className="bg-background-card rounded-xl border border-border-subtle border-dashed p-6 opacity-60">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-background-secondary flex items-center justify-center">
-                    <span className="text-xl">🌀</span>
-                  </div>
+              <div className="bg-background-card rounded-lg border border-border-subtle border-dashed p-4 opacity-60">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🌀</span>
                   <div>
-                    <h4 className="font-semibold text-white">Emissions Sunburst</h4>
+                    <h4 className="text-sm font-semibold text-white">Emissions Sunburst</h4>
                     <span className="text-xs text-accent-purple">Coming Soon</span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-500">
-                  Interactive drill-down from total emissions to individual sources.
-                </p>
+                <p className="text-xs text-gray-500">Interactive drill-down chart</p>
               </div>
-            </section>
+            </div>
           </>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border-subtle mt-12 py-6 bg-background-secondary/50">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-gray-500">
+      {/* Compact Footer */}
+      <footer className="border-t border-border-subtle mt-8 py-4 bg-background-secondary/50">
+        <div className="max-w-6xl mx-auto px-4 flex justify-between items-center text-xs text-gray-500">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-gradient-to-br from-accent-purple to-fuchsia-500 flex items-center justify-center">
-              <FlaskConical size={12} className="text-white" />
+            <div className="w-4 h-4 rounded bg-gradient-to-br from-accent-purple to-fuchsia-500 flex items-center justify-center">
+              <FlaskConical size={10} className="text-white" />
             </div>
-            <span>EcoMetrics Visualization Lab - Experimental D3.js Features</span>
+            <span>EcoMetrics Visualization Lab</span>
           </div>
-          <span className="text-gray-600">Powered by D3.js - Mike Bostock, 2011</span>
+          <span className="text-gray-600">Powered by D3.js</span>
         </div>
       </footer>
     </div>
