@@ -187,17 +187,15 @@ export default function VisualizationsPage() {
                 </p>
               }
             >
-              <div className="max-h-[320px] overflow-auto">
-                <EmissionsSankey
-                  electricity={currentAgg.electricityKwh}
-                  naturalGas={currentAgg.naturalGasTherm}
-                  transportMiles={currentAgg.inboundDeliveryMiles + currentAgg.outboundShippingMiles}
-                  scope1={emissions.scope1}
-                  scope2={emissions.scope2}
-                  scope3={emissions.scope3}
-                  height={280}
-                />
-              </div>
+              <EmissionsSankey
+                electricity={currentAgg.electricityKwh}
+                naturalGas={currentAgg.naturalGasTherm}
+                transportMiles={currentAgg.inboundDeliveryMiles + currentAgg.outboundShippingMiles}
+                scope1={emissions.scope1}
+                scope2={emissions.scope2}
+                scope3={emissions.scope3}
+                height={260}
+              />
             </CollapsibleSection>
 
             {/* Emission Factors - Compact */}
