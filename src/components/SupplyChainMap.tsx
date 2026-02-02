@@ -196,7 +196,7 @@ export default function SupplyChainMap({
   } | null>(null);
   const [rotation, setRotation] = useState<[number, number, number]>([-facilityLocation.lng, -facilityLocation.lat, 0]);
   const particleProgressRef = useRef<number[]>(SUPPLY_CHAIN_DATA.map(() => Math.random()));
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   const totalEmissions = SUPPLY_CHAIN_DATA.reduce((sum, s) => sum + s.emissionsKgCO2, 0);
   const totalDistance = SUPPLY_CHAIN_DATA.reduce((sum, s) => sum + s.distanceKm, 0);
