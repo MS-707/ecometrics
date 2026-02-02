@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, Globe, ChevronDown, ChevronUp } from 'lucide-react';
+import { Leaf, FlaskConical, ArrowLeft, Sparkles, RefreshCw, ChevronDown, ChevronUp, Calendar, Sun } from 'lucide-react';
 import Link from 'next/link';
 import EmissionsSankey from '@/components/EmissionsSankey';
-import SupplyChainMap from '@/components/SupplyChainMap';
+import ClimateCalendar from '@/components/ClimateCalendar';
+import EmissionsSunburst from '@/components/EmissionsSunburst';
 import { getMonthlyData, getSettings } from '@/lib/storage';
 import { calculateEmissions, aggregateMonthlyData, filterByQuarter, getCurrentQuarter, formatQuarter } from '@/lib/calculations';
 import { MonthlyData } from '@/lib/types';
@@ -186,7 +187,7 @@ export default function VisualizationsPage() {
                 </p>
               }
             >
-              <div className="max-h-[400px] overflow-auto">
+              <div className="max-h-[320px] overflow-auto">
                 <EmissionsSankey
                   electricity={currentAgg.electricityKwh}
                   naturalGas={currentAgg.naturalGasTherm}
@@ -194,7 +195,7 @@ export default function VisualizationsPage() {
                   scope1={emissions.scope1}
                   scope2={emissions.scope2}
                   scope3={emissions.scope3}
-                  height={350}
+                  height={280}
                 />
               </div>
             </CollapsibleSection>
@@ -225,11 +226,11 @@ export default function VisualizationsPage() {
               </div>
             </CollapsibleSection>
 
-            {/* Supply Chain Map - Collapsible */}
+            {/* Climate Calendar */}
             <CollapsibleSection
-              title="Supply Chain Globe"
-              subtitle="Scope 3 transport emissions by supplier"
-              icon={<Globe size={16} className="text-accent-blue" />}
+              title="Climate Calendar"
+              subtitle="Daily consumption patterns over time"
+              icon={<Calendar size={16} className="text-accent-green" />}
               badge={
                 <span className="px-2 py-0.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full">
                   Sample Data
@@ -238,39 +239,36 @@ export default function VisualizationsPage() {
               defaultExpanded={false}
               footer={
                 <p className="text-xs text-gray-500">
-                  <strong className="text-gray-400">How to interact:</strong> Drag to rotate the globe.
-                  Hover over markers for supplier details. Arc color indicates emissions intensity.
+                  <strong className="text-gray-400">How to read:</strong> Each cell represents one day.
+                  Darker colors indicate higher energy consumption. Hover for details.
                 </p>
               }
             >
-              <div className="flex justify-center">
-                <SupplyChainMap />
-              </div>
+              <ClimateCalendar />
             </CollapsibleSection>
 
-            {/* Coming Soon - More Compact */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-background-card rounded-lg border border-border-subtle border-dashed p-4 opacity-60">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📅</span>
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">Climate Calendar</h4>
-                    <span className="text-xs text-accent-purple">Coming Soon</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">Daily consumption heatmap</p>
-              </div>
-              <div className="bg-background-card rounded-lg border border-border-subtle border-dashed p-4 opacity-60">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">🌀</span>
-                  <div>
-                    <h4 className="text-sm font-semibold text-white">Emissions Sunburst</h4>
-                    <span className="text-xs text-accent-purple">Coming Soon</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">Interactive drill-down chart</p>
-              </div>
-            </div>
+            {/* Emissions Sunburst */}
+            <CollapsibleSection
+              title="Emissions Sunburst"
+              subtitle="Hierarchical breakdown by scope and source"
+              icon={<Sun size={16} className="text-amber-400" />}
+              defaultExpanded={false}
+              footer={
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-400">How to interact:</strong> Click segments to zoom in.
+                  Click the center to zoom back out. Hover for emission details.
+                </p>
+              }
+            >
+              <EmissionsSunburst
+                scope1={emissions.scope1}
+                scope2={emissions.scope2}
+                scope3={emissions.scope3}
+                electricity={currentAgg.electricityKwh}
+                naturalGas={currentAgg.naturalGasTherm}
+                transportMiles={currentAgg.inboundDeliveryMiles + currentAgg.outboundShippingMiles}
+              />
+            </CollapsibleSection>
           </>
         )}
       </main>
